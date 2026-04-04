@@ -24,9 +24,7 @@
       <nav class="sidebar-nav">
         <a class="nav-item active" href="#dashboard">Dashboard</a>
         <a class="nav-item" href="#data-alumni">Data Alumni</a>
-        <a class="nav-item" href="#tambah-alumni">Tambah Alumni</a>
-        <a class="nav-item" href="#laporan">Laporan</a>
-      </nav>
+        <a class="nav-item" href="#tambah-alumni">Tambah Alumni</a></nav>
       <div class="sidebar-actions">
         <button id="authButton" class="btn ghost" type="button">Login Admin</button>
       </div>
@@ -49,6 +47,57 @@
         <div class="stat-card">
           <p>Belum Dilacak</p>
           <h3 id="untrackedCount">0</h3>
+        </div>
+      </section>
+
+      <section id="data-alumni" class="card">
+        <h2>Data Alumni</h2>
+        <p class="section-subtitle">Halaman ini hanya menampilkan data. Tambah dan edit dilakukan di menu Tambah Alumni.</p>
+
+        <div class="search-bar">
+          <input type="text" id="searchName" placeholder="Cari berdasarkan nama" />
+          <button id="searchBtn" class="btn" type="button">Cari</button>
+          <button id="resetBtn" class="btn ghost" type="button">Tampilkan Semua</button>
+        </div>
+
+        <div class="table-wrapper">
+          <table id="alumniTable">
+            <thead>
+              <tr>
+                <th>Nama</th>
+                <th>NIM</th>
+                <th>Fakultas</th>
+                <th>Program Studi</th>
+                <th>Tahun Masuk</th>
+                <th>Tanggal Lulus</th>
+                <th>Tahun Lulus</th>
+                <th>Email</th>
+                <th>No HP</th>
+                <th>LinkedIn</th>
+                <th>Instagram</th>
+                <th>Facebook</th>
+                <th>TikTok</th>
+                <th>Posisi</th>
+                <th>Tempat Bekerja</th>
+                <th>Alamat Bekerja</th>
+                <th>Status Pekerjaan</th>
+                <th>Sosmed Tempat Bekerja</th>
+                <th>Status Pelacakan</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="20" class="empty">Belum ada data alumni.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination">
+          <button id="prevPage" type="button">Sebelumnya</button>
+          <span id="pageInfo">Halaman 1 dari 1</span>
+          <button id="nextPage" type="button">Berikutnya</button>
         </div>
       </section>
 
@@ -184,62 +233,8 @@
         </form>
 
         <p id="statusMessage" class="status">Siap menerima input data.</p>
-      </section>
-
-      <section id="data-alumni" class="card">
-        <h2>Daftar Alumni</h2>
-
-        <div class="table-controls">
-          <div class="search-bar">
-            <input type="text" id="searchName" placeholder="Cari berdasarkan nama" />
-            <button id="searchBtn" class="btn">Cari</button>
-            <button id="resetBtn" class="btn ghost">Tampilkan Semua</button>
-          </div>
-          <div class="pagination">
-            <button id="prevPage" class="btn ghost" type="button">Sebelumnya</button>
-            <span id="pageInfo" class="muted">Halaman 1</span>
-            <button id="nextPage" class="btn ghost" type="button">Berikutnya</button>
-          </div>
-        </div>
-
-        <div class="table-wrapper">
-          <table id="alumniTable">
-            <thead>
-              <tr>
-                <th>Nama</th>
-                <th>NIM</th>
-                <th>Fakultas</th>
-                <th>Program Studi</th>
-                <th>Tahun Masuk</th>
-                <th>Tanggal Lulus</th>
-                <th>Tahun Lulus</th>
-                <th>Email</th>
-                <th>No HP</th>
-                <th>LinkedIn</th>
-                <th>Instagram</th>
-                <th>Facebook</th>
-                <th>TikTok</th>
-                <th>Posisi</th>
-                <th>Tempat Bekerja</th>
-                <th>Alamat Bekerja</th>
-                <th>Status Pekerjaan</th>
-                <th>Sosmed Tempat Bekerja</th>
-                <th>Status Pelacakan</th>
-                <th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colspan="20" class="empty">Belum ada data alumni.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+      </section></main>
   </div>
-
-  <footer id="laporan" class="app-footer"></footer>
 
   <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
     <div class="modal-content">
@@ -263,7 +258,21 @@
     </div>
   </div>
 
+  <div id="detailModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <div>
+          <h2 id="detailTitle">Detail Alumni</h2>
+          <p id="detailName" class="modal-subtitle">-</p>
+        </div>
+        <button type="button" id="closeDetail" class="btn ghost">Tutup</button>
+      </div>
+      <div id="detailBody" class="detail-grid"></div>
+    </div>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
+
 

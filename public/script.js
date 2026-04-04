@@ -19,16 +19,26 @@ const loginHint = document.getElementById("loginHint");
 const prevPageBtn = document.getElementById("prevPage");
 const nextPageBtn = document.getElementById("nextPage");
 const pageInfo = document.getElementById("pageInfo");
+const detailModal = document.getElementById("detailModal");
+const detailBody = document.getElementById("detailBody");
+const detailName = document.getElementById("detailName");
+const closeDetail = document.getElementById("closeDetail");
 
 const ADMIN_TOKEN_KEY = "alumniAdminToken";
 const ADMIN_USER_KEY = "alumniAdminUser";
-const PAGE_SIZE = 200;
+const BATCH_SIZE = 500;
 
 let editingId = null;
 let lastData = [];
-let currentOffset = 0;
-let currentTotal = 0;
+let filteredData = [];
 let currentQuery = "";
+
+let currentPage = 1;
+const rowsPerPage = 5;
+
+let totalRecords = 0;
+let latestStats = null;
+let isLoadingBatch = false;
 
 function getToken() {
   return localStorage.getItem(ADMIN_TOKEN_KEY);
@@ -141,11 +151,11 @@ function updateStatsFromData(data) {
   untrackedCountEl.textContent = untracked;
 }
 
-function updateStatsFromMeta(stats = {}, total = 0) {
+function updateStatsFromMeta(stats, total) {
   totalCountEl.textContent = total;
-  identifiedCountEl.textContent = stats.identified ?? 0;
-  verifyCountEl.textContent = stats.verify ?? 0;
-  untrackedCountEl.textContent = stats.untracked ?? 0;
+  identifiedCountEl.textContent = stats?.identified ?? 0;
+  verifyCountEl.textContent = stats?.verify ?? 0;
+  untrackedCountEl.textContent = stats?.untracked ?? 0;
 }
 
 function showLoginModal() {
@@ -158,6 +168,36 @@ function hideLoginModal() {
   loginModal.classList.add("hidden");
 }
 
+function showDetailModal(alumni) {
+  if (!alumni) return;
+  detailName.textContent = alumni.name || "-";
+  detailBody.innerHTML = `
+    <div class="detail-item"><span class="detail-label">NIM</span><span class="detail-value">${formatValue(alumni.studentId)}</span></div>
+    <div class="detail-item"><span class="detail-label">Fakultas</span><span class="detail-value">${formatValue(alumni.faculty)}</span></div>
+    <div class="detail-item"><span class="detail-label">Program Studi</span><span class="detail-value">${formatValue(alumni.program)}</span></div>
+    <div class="detail-item"><span class="detail-label">Tahun Masuk</span><span class="detail-value">${formatValue(alumni.entryYear)}</span></div>
+    <div class="detail-item"><span class="detail-label">Tanggal Lulus</span><span class="detail-value">${formatValue(alumni.graduationDate)}</span></div>
+    <div class="detail-item"><span class="detail-label">Tahun Lulus</span><span class="detail-value">${formatValue(alumni.graduationYear)}</span></div>
+    <div class="detail-item"><span class="detail-label">Email</span><span class="detail-value">${formatValue(alumni.email)}</span></div>
+    <div class="detail-item"><span class="detail-label">No HP</span><span class="detail-value">${formatValue(alumni.phone)}</span></div>
+    <div class="detail-item"><span class="detail-label">LinkedIn</span><span class="detail-value">${formatValue(alumni.socialLinkedin)}</span></div>
+    <div class="detail-item"><span class="detail-label">Instagram</span><span class="detail-value">${formatValue(alumni.socialInstagram)}</span></div>
+    <div class="detail-item"><span class="detail-label">Facebook</span><span class="detail-value">${formatValue(alumni.socialFacebook)}</span></div>
+    <div class="detail-item"><span class="detail-label">TikTok</span><span class="detail-value">${formatValue(alumni.socialTiktok)}</span></div>
+    <div class="detail-item"><span class="detail-label">Posisi</span><span class="detail-value">${formatValue(alumni.position)}</span></div>
+    <div class="detail-item"><span class="detail-label">Tempat Bekerja</span><span class="detail-value">${formatValue(alumni.workplace)}</span></div>
+    <div class="detail-item"><span class="detail-label">Alamat Bekerja</span><span class="detail-value">${formatValue(alumni.workplaceAddress)}</span></div>
+    <div class="detail-item"><span class="detail-label">Status Pekerjaan</span><span class="detail-value">${formatValue(alumni.employmentType)}</span></div>
+    <div class="detail-item"><span class="detail-label">Sosmed Tempat Bekerja</span><span class="detail-value">${formatValue(alumni.workplaceSocialMedia)}</span></div>
+    <div class="detail-item"><span class="detail-label">Status Pelacakan</span><span class="detail-value">${formatValue(alumni.status)}</span></div>
+  `;
+  detailModal.classList.remove("hidden");
+}
+
+function hideDetailModal() {
+  detailModal.classList.add("hidden");
+}
+
 function renderEmptyState(message) {
   tableBody.innerHTML = `
     <tr>
@@ -165,18 +205,7 @@ function renderEmptyState(message) {
     </tr>
   `;
   updateStatsFromData([]);
-}
-
-function updatePagination(offset = 0, limit = PAGE_SIZE, total = 0) {
-  currentOffset = offset;
-  currentTotal = total;
-
-  const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
-  const currentPage = total > 0 ? Math.floor(offset / limit) + 1 : 1;
-
-  pageInfo.textContent = `Halaman ${currentPage} dari ${totalPages}`;
-  prevPageBtn.disabled = offset <= 0;
-  nextPageBtn.disabled = offset + limit >= total;
+  updatePaginationInfo(0);
 }
 
 function updateAuthUI() {
@@ -191,8 +220,11 @@ function updateAuthUI() {
 
   if (!admin) {
     resetFormMode();
-    renderEmptyState("Silakan login untuk melihat data alumni.");
-    updatePagination(0, PAGE_SIZE, 0);
+  }
+
+  if (lastData.length) {
+    applyFilter();
+    renderTable(getActiveData());
   }
 }
 
@@ -230,33 +262,66 @@ function setEditMode(alumni) {
   statusSelect.value = normalizeStatus(alumni.status);
   submitBtn.textContent = "Perbarui Data";
   setStatus("Mode edit: perbarui data lalu simpan.");
+  document.getElementById("tambah-alumni").scrollIntoView({ behavior: "smooth" });
   form.name.focus();
 }
 
-function renderTable(data) {
-  const enriched = Array.isArray(data)
-    ? data.map((item) => ({
-        ...item,
-        status: normalizeStatus(item.status)
-      }))
-    : [];
+function paginateData(data) {
+  const start = (currentPage - 1) * rowsPerPage;
+  return data.slice(start, start + rowsPerPage);
+}
 
-  lastData = enriched;
+function getTotalDataCount() {
+  if (currentQuery) return filteredData.length;
+  if (totalRecords > 0) return totalRecords;
+  return lastData.length;
+}
+
+function updatePaginationInfo(totalData) {
+  const totalPages = Math.max(1, Math.ceil(totalData / rowsPerPage));
+  if (currentPage > totalPages) {
+    currentPage = totalPages;
+  }
+  pageInfo.textContent = `Halaman ${currentPage} dari ${totalPages}`;
+  prevPageBtn.disabled = currentPage <= 1;
+  nextPageBtn.disabled = currentPage >= totalPages;
+}
+
+function getActiveData() {
+  return currentQuery ? filteredData : lastData;
+}
+
+function applyFilter() {
+  if (currentQuery) {
+    filteredData = lastData.filter((item) =>
+      String(item.name || "").toLowerCase().includes(currentQuery)
+    );
+  } else {
+    filteredData = [];
+  }
+}
+
+function renderTable(data) {
+  const dataset = Array.isArray(data) ? data : [];
   tableBody.innerHTML = "";
 
-  if (!lastData.length) {
+  if (!dataset.length) {
     renderEmptyState("Data tidak ditemukan.");
     return;
   }
 
+  updatePaginationInfo(getTotalDataCount());
+  const paginated = paginateData(dataset);
   const admin = isAdmin();
 
-  lastData.forEach((item) => {
+  paginated.forEach((item) => {
     const statusClass = getStatusClass(item.status);
+    const detailBtn = `<button class="btn ghost" data-action="detail" data-id="${item.id}">Detail</button>`;
     const actions = admin
-      ? `<button class="btn ghost" data-action="edit" data-id="${item.id}">Edit</button>
+      ? `${detailBtn}
+         <button class="btn ghost" data-action="edit" data-id="${item.id}">Edit</button>
          <button class="btn danger" data-action="delete" data-id="${item.id}">Hapus</button>`
-      : `<span class="muted">-</span>`;
+      : detailBtn;
 
     const row = document.createElement("tr");
     row.innerHTML = `
@@ -283,6 +348,12 @@ function renderTable(data) {
     `;
     tableBody.appendChild(row);
   });
+
+  if (latestStats && !currentQuery && totalRecords > 0) {
+    updateStatsFromMeta(latestStats, totalRecords);
+  } else {
+    updateStatsFromData(dataset);
+  }
 }
 
 function handleUnauthorized(message) {
@@ -291,50 +362,101 @@ function handleUnauthorized(message) {
   setStatus(message || "Sesi login berakhir. Silakan login kembali.", "warning");
 }
 
-function buildListUrl() {
+async function fetchBatch(offset) {
   const params = new URLSearchParams();
-  params.set("limit", PAGE_SIZE);
-  params.set("offset", currentOffset);
+  params.set("limit", BATCH_SIZE);
+  params.set("offset", offset);
+  const url = `/alumni?${params.toString()}`;
 
-  if (currentQuery) {
-    params.set("name", currentQuery);
-    return `/alumni/search?${params.toString()}`;
+  const response = await fetch(url, {
+    headers: buildAuthHeaders()
+  });
+
+  if (response.status === 401) {
+    handleUnauthorized("Silakan login untuk melihat data alumni.");
+    return null;
   }
 
-  return `/alumni?${params.toString()}`;
+  if (!response.ok) {
+    setStatus("Gagal memuat data alumni.", "error");
+    return null;
+  }
+
+  const result = await response.json();
+
+  if (Array.isArray(result)) {
+    return { data: result, total: result.length, stats: null, isFull: true };
+  }
+
+  const batch = Array.isArray(result.data) ? result.data : [];
+  const total = Number.isFinite(result.total) ? result.total : 0;
+  const stats = result.stats || null;
+
+  return { data: batch, total, stats, isFull: false };
 }
 
-async function fetchAlumni() {
+async function fetchMoreData() {
+  if (isLoadingBatch) return false;
+  if (totalRecords && lastData.length >= totalRecords) return false;
+
+  isLoadingBatch = true;
   try {
-    const response = await fetch(buildListUrl(), {
-      headers: buildAuthHeaders()
-    });
+    const result = await fetchBatch(lastData.length);
+    if (!result) return false;
 
-    if (response.status === 401) {
-      handleUnauthorized("Silakan login untuk melihat data alumni.");
-      return;
+    if (result.isFull) {
+      lastData = result.data;
+      totalRecords = result.total;
+      latestStats = result.stats;
+      return result.data.length > 0;
     }
 
-    if (!response.ok) {
-      setStatus("Gagal memuat data alumni.", "error");
-      return;
+    lastData = lastData.concat(result.data);
+    if (result.total) {
+      totalRecords = result.total;
+    }
+    if (result.stats) {
+      latestStats = result.stats;
     }
 
-    const result = await response.json();
-
-    if (Array.isArray(result)) {
-      renderTable(result);
-      updateStatsFromData(result);
-      updatePagination(0, PAGE_SIZE, result.length);
-      return;
-    }
-
-    renderTable(result.data || []);
-    updateStatsFromMeta(result.stats, result.total);
-    updatePagination(result.offset || 0, result.limit || PAGE_SIZE, result.total || 0);
-  } catch (error) {
-    setStatus("Gagal memuat data alumni.", "error");
+    return result.data.length > 0;
+  } finally {
+    isLoadingBatch = false;
   }
+}
+
+async function ensureDataForPage(page) {
+  if (currentQuery) return;
+  const needed = page * rowsPerPage;
+  if (lastData.length >= needed) return;
+  await fetchMoreData();
+}
+
+async function loadAlumniData() {
+  if (!isAdmin()) {
+    renderEmptyState("Data alumni belum dimuat. Login admin untuk sinkronisasi.");
+    return;
+  }
+
+  setStatus("Memuat data alumni...", "warning");
+  currentPage = 1;
+  currentQuery = "";
+  searchInput.value = "";
+  lastData = [];
+  filteredData = [];
+  totalRecords = 0;
+  latestStats = null;
+
+  const loaded = await fetchMoreData();
+  if (!loaded) {
+    renderEmptyState("Data tidak ditemukan.");
+    setStatus("Data alumni belum tersedia.", "warning");
+    return;
+  }
+
+  applyFilter();
+  renderTable(getActiveData());
+  setStatus("Data alumni berhasil dimuat.", "success");
 }
 
 async function verifySession() {
@@ -429,35 +551,43 @@ form.addEventListener("submit", async (event) => {
     setStatus(editingId ? "Data alumni berhasil diperbarui." : "Data alumni berhasil disimpan.", "success");
     form.reset();
     resetFormMode();
-    fetchAlumni();
+    await loadAlumniData();
   } catch (error) {
     setStatus("Terjadi kesalahan pada server.", "error");
   }
 });
 
 searchBtn.addEventListener("click", () => {
-  currentQuery = searchInput.value.trim();
-  currentOffset = 0;
-  fetchAlumni();
+  currentQuery = searchInput.value.trim().toLowerCase();
+  currentPage = 1;
+  applyFilter();
+  renderTable(getActiveData());
 });
 
 resetBtn.addEventListener("click", () => {
   searchInput.value = "";
   currentQuery = "";
-  currentOffset = 0;
-  fetchAlumni();
+  filteredData = [];
+  currentPage = 1;
+  renderTable(getActiveData());
 });
 
 prevPageBtn.addEventListener("click", () => {
-  if (currentOffset <= 0) return;
-  currentOffset = Math.max(0, currentOffset - PAGE_SIZE);
-  fetchAlumni();
+  if (currentPage > 1) {
+    currentPage -= 1;
+    renderTable(getActiveData());
+  }
 });
 
-nextPageBtn.addEventListener("click", () => {
-  if (currentOffset + PAGE_SIZE >= currentTotal) return;
-  currentOffset += PAGE_SIZE;
-  fetchAlumni();
+nextPageBtn.addEventListener("click", async () => {
+  const totalPages = Math.max(1, Math.ceil(getTotalDataCount() / rowsPerPage));
+  if (currentPage < totalPages) {
+    const nextPage = currentPage + 1;
+    await ensureDataForPage(nextPage);
+    applyFilter();
+    currentPage = nextPage;
+    renderTable(getActiveData());
+  }
 });
 
 authButton.addEventListener("click", () => {
@@ -505,13 +635,23 @@ loginForm.addEventListener("submit", async (event) => {
     hideLoginModal();
     setStatus("Login admin berhasil.", "success");
     updateAuthUI();
-    fetchAlumni();
+    await loadAlumniData();
   } catch (error) {
     loginError.classList.remove("hidden");
   }
 });
 
-// Event delegation for edit/delete button
+detailModal.addEventListener("click", (event) => {
+  if (event.target === detailModal) {
+    hideDetailModal();
+  }
+});
+
+closeDetail.addEventListener("click", () => {
+  hideDetailModal();
+});
+
+// Event delegation for detail/edit/delete button
 tableBody.addEventListener("click", async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
@@ -520,13 +660,21 @@ tableBody.addEventListener("click", async (event) => {
   const id = target.getAttribute("data-id");
   if (!action || !id) return;
 
+  const alumni = lastData.find((item) => String(item.id) === String(id));
+
+  if (action === "detail") {
+    if (alumni) {
+      showDetailModal(alumni);
+    }
+    return;
+  }
+
   if (!isAdmin()) {
     setStatus("Silakan login sebagai admin untuk mengubah data alumni.", "warning");
     return;
   }
 
   if (action === "edit") {
-    const alumni = lastData.find((item) => String(item.id) === String(id));
     if (alumni) {
       setEditMode(alumni);
     }
@@ -555,7 +703,7 @@ tableBody.addEventListener("click", async (event) => {
       }
 
       setStatus("Data alumni berhasil dihapus.", "success");
-      fetchAlumni();
+      await loadAlumniData();
     } catch (error) {
       setStatus("Terjadi kesalahan pada server.", "error");
     }
@@ -567,7 +715,9 @@ async function init() {
   updateAuthUI();
   resetFormMode();
   if (hasSession) {
-    fetchAlumni();
+    await loadAlumniData();
+  } else {
+    renderEmptyState("Data alumni belum dimuat. Login admin untuk sinkronisasi.");
   }
 }
 
