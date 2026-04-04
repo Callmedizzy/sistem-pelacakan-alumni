@@ -4,7 +4,8 @@
   "description": "Sistem Pelacakan Alumni sederhana untuk tugas kuliah.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "import:alumni": "node scripts/import-alumni.js"
   },
   "keywords": [
     "alumni",
@@ -15,6 +16,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "xlsx": "^0.18.5"
   }
 }

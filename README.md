@@ -18,7 +18,8 @@ Aplikasi web sederhana untuk mengelola data dan pelacakan alumni.
 
 ```bash
 npm install
-node server.js
+npm run import:alumni
+npm start
 ```
 
 3. Buka browser di:
@@ -29,40 +30,37 @@ http://localhost:3000
 
 ## Fitur Aplikasi
 
+- Login admin untuk mengakses data
+- Import data alumni dari Excel
 - Tambah data alumni
 - Cari data alumni
 - Edit data alumni
 - Hapus data alumni
-- Menampilkan daftar alumni
+- Menampilkan statistik status pelacakan
 
 ## Tabel Pengujian Aplikasi
 
-| No | Fitur         | Skenario Pengujian              | Hasil    |
-| -- | ------------- | ------------------------------- | -------- |
-| 1  | Tambah Alumni | Menambahkan data alumni baru    | Berhasil |
-| 2  | Cari Alumni   | Mencari alumni berdasarkan nama | Berhasil |
-| 3  | Edit Alumni   | Memperbarui data alumni         | Berhasil |
-| 4  | Hapus Alumni  | Menghapus data alumni           | Berhasil |
-| 5  | Lihat Data    | Menampilkan semua data alumni   | Berhasil |
-
-## Pengujian Sistem
-
-Bagian ini menjelaskan pengujian yang dilakukan untuk memastikan setiap fitur utama berjalan sesuai kebutuhan dan dapat digunakan dengan baik oleh pengguna.
-
-| No | Fitur yang Diuji | Skenario Pengujian | Hasil yang Diharapkan | Hasil Pengujian | Status |
-|----|------------------|--------------------|----------------------|-----------------|--------|
-| 1 | Pencarian data tanpa login | Pengunjung mencari data alumni menggunakan kolom pencarian tanpa login | Data alumni yang sesuai tampil di tabel | Berhasil | Selesai |
-| 2 | Login admin | Admin memasukkan username dan password yang benar | Sistem menampilkan status login berhasil dan akses CRUD aktif | Berhasil | Selesai |
-| 3 | Tambah data (Create) | Admin menambahkan data alumni baru melalui form | Data baru tersimpan dan tampil di tabel | Berhasil | Selesai |
-| 4 | Edit data (Update) | Admin mengubah data alumni yang ada | Data alumni diperbarui di tabel | Berhasil | Selesai |
-| 5 | Hapus data (Delete) | Admin menghapus salah satu data alumni | Data alumni terhapus dari tabel | Berhasil | Selesai |
+| No | Fitur         | Skenario Pengujian                     | Hasil    |
+| -- | ------------- | -------------------------------------- | -------- |
+| 1  | Login Admin   | Admin login dengan kredensial benar    | Berhasil |
+| 2  | Lihat Data    | Admin melihat data alumni setelah login| Berhasil |
+| 3  | Tambah Alumni | Menambahkan data alumni baru           | Berhasil |
+| 4  | Cari Alumni   | Mencari alumni berdasarkan nama        | Berhasil |
+| 5  | Edit Alumni   | Memperbarui data alumni                | Berhasil |
+| 6  | Hapus Alumni  | Menghapus data alumni                  | Berhasil |
 
 ## Login Admin
 
-Untuk masuk sebagai admin, gunakan kredensial berikut:
+Gunakan kredensial berikut untuk login:
 
 - Username: `admin`
-- Password: `admin123`
+- Password: `Alumni@2026`
 
-Setelah login, fitur Tambah, Edit, dan Hapus data alumni akan aktif.
+Untuk mengganti kredensial, set environment variable:
 
+- `ALUMNI_ADMIN_USER`
+- `ALUMNI_ADMIN_PASS`
+
+## Catatan Keamanan
+
+Semua data hanya digunakan untuk kepentingan pembelajaran dan dilarang disebarluaskan untuk kepentingan apa pun.
